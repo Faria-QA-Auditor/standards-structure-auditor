@@ -38,8 +38,6 @@ if st.button("Auditar Estándares", type="primary"):
             texto_limpio = texto.strip()
             if not texto_limpio:
                 return True
-            
-            # Revisa si cumple estrictamente con alguno de los patrones de la lista
             for patron in simbolos_validos:
                 if re.match(patron, texto_limpio):
                     return True
@@ -52,87 +50,79 @@ if st.button("Auditar Estándares", type="primary"):
             if not linea_strip:
                 continue
             
-            # 1. VALIDACIÓN ESTRICTA DE SÍMBOLO INICIAL
+            # 1. VALIDACIÓN ESTRICTA DE SÍMOLO INICIAL
             if not tiene_simbolo_valido(linea_strip):
                 # Si no tiene símbolo válido, determinamos si es una línea cortada (Hard Return)
-                # o un error directo de símbolo ausente/incorrecto al inicio del bloque.
                 if i > 0 and lineas[i-1].strip() and (linea_strip[0].islower() or not tiene_simbolo_valido(lineas[i-1])):
-                    reporte_hard_returns.append(
-                        f"📍 **Línea {num_linea}:** '{linea_strip[:50]}...'"
-                    )
+                    reporte_hard_returns.append({
+                        "linea": num_linea,
+                        "texto": linea_strip
+                    })
                 else:
-                    reporte_simbolos.append(
-                        f"📍 **Línea {num_linea}:** Inicia de forma incorrecta con '{linea_strip[:30]}...'"
-                    )
+                    reporte_simbolos.append({
+                        "linea": num_linea,
+                        "texto": linea_strip
+                    })
 
             # 2. VALIDACIÓN DE ESPACIOS
-            if "  " in linea:
-                reporte_espacios.append(f"📍 **Línea {num_linea}:** Contiene espacios dobles seguidos.")
-            if linea.endswith(" ") or linea.startswith(" "):
-                reporte_espacios.append(f"📍 **Línea {num_linea}:** Contiene espacios invisibles/sueltos al inicio o al final.")
+            if "  " in linea or linea.endswith(" ") or linea.startswith(" "):
+                detalles = []
+                if "  " in linea: detalles.append("espacios dobles")
+                if linea.startswith(" ") or linea.endswith(" "): detalles.append("espacios huérfanos al inicio/final")
+                
+                reporte_espacios.append({
+                    "linea": num_linea,
+                    "texto": linea,
+                    "detalle": " y ".join(detalles)
+                })
 
             # 3. VALIDACIÓN DE PALABRAS PEGADAS
             palabras = re.findall(r'[a-zA-Z]+', linea_strip)
             for palabra in palabras:
                 if len(palabra) > 12 and spell.unknown([palabra]):
-                    reporte_palabras_pegadas.append(f"📍 **Línea {num_linea}:** Detectada la palabra '**{palabra}**'")
+                    reporte_palabras_pegadas.append({
+                        "linea": num_linea,
+                        "palabra": palabra,
+                        "texto": linea_strip
+                    })
 
         # MOSTRAR RESULTADOS EN LA INTERFAZ
         st.subheader("📋 Reporte de Auditoría")
         
-        # --- CATEGORÍA 1: SÍMBOLOS FALTANTES O INCORRECTOS (ESTRICTO) ---
+        # --- CATEGORÍA 1: SÍMBOLOS FALTANTES O INCORRECTOS ---
         if reporte_simbolos:
             errores_encontrados = True
             with st.expander("🔴 Estándares sin Símbolo Autorizado (¡Alerta Crítica!)", expanded=True):
-                st.info("""
-                💡 **¿Por qué se marca?** La línea comenzó con letras, números, paréntesis sueltos `()` o un carácter no autorizado. **OBLIGATORIAMENTE** debe empezar con uno de tus 12 símbolos de Sublime.
-                * ❌ **Ejemplo de Error:** `(a) Understand and apply properties...` *(Falta el símbolo antes del paréntesis)*
-                * ❌ **Ejemplo de Error:** `Grade 4 standard content...` *(Texto plano sin codificar)*
-                * ✔️ **Cómo debería verse:** `## (a) Understand and apply properties...` o `%%Grade 4 standard content...`
-                """)
-                st.markdown("---")
-                for err in reporte_simbolos:
-                    st.error(err)
+                st.markdown("### El texto real de tus líneas con error:")
+                for item in reporte_simbolos:
+                    # Usamos st.error para que resalte visualmente en rojo la línea completa de tu trabajo
+                    st.error(f"**Línea {item['linea']}:** `{item['texto']}`")
 
         # --- CATEGORÍA 2: HARD RETURNS ---
         if reporte_hard_returns:
             errores_encontrados = True
             with st.expander("⚠️ Líneas Cortadas / Saltos de línea huérfanos (Hard Returns)", expanded=True):
-                st.info("""
-                💡 **¿Por qué se marca?** Esta línea no tiene un símbolo válido y parece ser la continuación que se quebró de la frase anterior en Sublime Text.
-                * ❌ **Ejemplo de Error:** `## Analyze informational text`
-                    `and its main structural elements.` *(Línea cortada)*
-                * ✔️ **Cómo debería verse:** `## Analyze informational text and its main structural elements.`
-                """)
-                st.markdown("---")
-                for err in reporte_hard_returns:
-                    st.warning(err)
+                st.markdown("### El texto real de tus líneas cortadas:")
+                for item in reporte_hard_returns:
+                    st.warning(f"**Línea {item['linea']}:** `{item['texto']}`")
 
         # --- CATEGORÍA 3: ERRORES DE ESPACIADO ---
         if reporte_espacios:
             errores_encontrados = True
             with st.expander("🔵 Errores de Espaciado (Dobles o Huérfanos)", expanded=True):
-                st.info("""
-                💡 **¿Por qué se marca?** Se detectaron espacios dobles (`  `) dentro del texto, o espacios fantasma al inicio o al final de la línea.
-                * ❌ **Ejemplo de Error:** `$$  Identify theme` o `%% Describe character `
-                * ✔️ **Cómo debería verse:** `$$ Identify theme` o `%% Describe character`
-                """)
-                st.markdown("---")
-                for err in reporte_espacios:
-                    st.info(err)
+                st.markdown("### Líneas con problemas de espacios:")
+                for item in reporte_espacios:
+                    # Reemplazamos espacios dobles visualmente para que sepas dónde están
+                    texto_visible = item['texto'].replace("  ", " [ESPACIO_DOBLE] ")
+                    st.info(f"**Línea {item['linea']}:** `{texto_visible}` *({item['detalle']})*")
 
         # --- CATEGORÍA 4: PALABRAS PEGADAS ---
         if reporte_palabras_pegadas:
             errores_encontrados = True
             with st.expander("🟡 Posibles Palabras Pegadas", expanded=True):
-                st.info("""
-                💡 **¿Por qué se marca?** Una palabra larga no coincide con el diccionario. Verifica si se pegaron caracteres por error.
-                * ❌ **Ejemplo de Error:** `!! Use ageappropriate learning models.`
-                * ✔️ **Cómo debería verse:** `!! Use age-appropriate learning models.`
-                """)
-                st.markdown("---")
-                for err in reporte_palabras_pegadas:
-                    st.write(err)
+                st.markdown("### Palabras sospechosas encontradas:")
+                for item in reporte_palabras_pegadas:
+                    st.write(f"❌ **Línea {item['linea']}:** Se detectó '**{item['palabra']}**' en el texto: *\"{item['texto']}\"*")
 
         if not errores_encontrados:
             st.success("🎉 ¡Auditoría limpia! Toda la estructura coincide perfectamente con tus símbolos obligatorios de Sublime.")
