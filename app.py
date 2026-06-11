@@ -8,10 +8,37 @@ st.set_page_config(page_title="Standards QA Auditor", page_icon="🔍", layout="
 st.title("🔍 Auditor de Estructura de Estándares")
 st.write("Pega el texto codificado en Sublime Text para verificar errores de formato antes de subirlo.")
 
-# Entrada de texto
-texto_input = st.text_area("Pega tus estándares aquí:", height=300)
+# 1. INICIALIZAR EL ESTADO DEL TEXTO (Para poder borrarlo con un botón)
+if "texto_estandares" not in st.session_state:
+    st.session_state["texto_estandares"] = ""
 
-if st.button("Auditar Estándares", type="primary"):
+# Función para limpiar el cuadro de texto
+def limpiar_pantalla():
+    st.session_state["texto_estandares"] = ""
+
+# 2. ENTRADA DE TEXTO (Conectada al session_state)
+texto_input = st.text_area(
+    "Pega tus estándares aquí:", 
+    value=st.session_state["texto_estandares"], 
+    key="texto_area_main",
+    height=300
+)
+
+# Actualizar el estado de la sesión si el usuario escribe directamente
+st.session_state["texto_estandares"] = texto_input
+
+# 3. BOTONES DE ACCIÓN EN PARALELO
+col1, col2 = st.columns([1, 8])
+
+with col1:
+    bot_auditar = st.button("Auditar Estándares", type="primary")
+
+with col2:
+    # Botón que ejecuta la función de limpieza al hacer clic
+    bot_limpiar = st.button("Borrar todo 🗑️", on_click=limpiar_pantalla)
+
+# 4. EJECUCIÓN DE LA AUDITORÍA
+if bot_auditar:
     if not texto_input.strip():
         st.warning("Por favor, pega algún texto para analizar.")
     else:
@@ -50,9 +77,8 @@ if st.button("Auditar Estándares", type="primary"):
             if not linea_strip:
                 continue
             
-            # 1. VALIDACIÓN ESTRICTA DE SÍMOLO INICIAL
+            # Validación estricta de símbolo inicial
             if not tiene_simbolo_valido(linea_strip):
-                # Si no tiene símbolo válido, determinamos si es una línea cortada (Hard Return)
                 if i > 0 and lineas[i-1].strip() and (linea_strip[0].islower() or not tiene_simbolo_valido(lineas[i-1])):
                     reporte_hard_returns.append({
                         "linea": num_linea,
@@ -64,7 +90,7 @@ if st.button("Auditar Estándares", type="primary"):
                         "texto": linea_strip
                     })
 
-            # 2. VALIDACIÓN DE ESPACIOS
+            # Validación de espacios
             if "  " in linea or linea.endswith(" ") or linea.startswith(" "):
                 detalles = []
                 if "  " in linea: detalles.append("espacios dobles")
@@ -76,7 +102,7 @@ if st.button("Auditar Estándares", type="primary"):
                     "detalle": " y ".join(detalles)
                 })
 
-            # 3. VALIDACIÓN DE PALABRAS PEGADAS
+            # Validación de palabras pegadas
             palabras = re.findall(r'[a-zA-Z]+', linea_strip)
             for palabra in palabras:
                 if len(palabra) > 12 and spell.unknown([palabra]):
@@ -95,7 +121,6 @@ if st.button("Auditar Estándares", type="primary"):
             with st.expander("🔴 Estándares sin Símbolo Autorizado (¡Alerta Crítica!)", expanded=True):
                 st.markdown("### El texto real de tus líneas con error:")
                 for item in reporte_simbolos:
-                    # Usamos st.error para que resalte visualmente en rojo la línea completa de tu trabajo
                     st.error(f"**Línea {item['linea']}:** `{item['texto']}`")
 
         # --- CATEGORÍA 2: HARD RETURNS ---
@@ -112,7 +137,6 @@ if st.button("Auditar Estándares", type="primary"):
             with st.expander("🔵 Errores de Espaciado (Dobles o Huérfanos)", expanded=True):
                 st.markdown("### Líneas con problemas de espacios:")
                 for item in reporte_espacios:
-                    # Reemplazamos espacios dobles visualmente para que sepas dónde están
                     texto_visible = item['texto'].replace("  ", " [ESPACIO_DOBLE] ")
                     st.info(f"**Línea {item['linea']}:** `{texto_visible}` *({item['detalle']})*")
 
