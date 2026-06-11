@@ -8,36 +8,29 @@ st.set_page_config(page_title="Standards QA Auditor", page_icon="🔍", layout="
 st.title("🔍 Auditor de Estructura de Estándares")
 st.write("Pega el texto codificado en Sublime Text para verificar errores de formato antes de subirlo.")
 
-# 1. INICIALIZAR EL ESTADO DEL TEXTO (Para poder borrarlo con un botón)
-if "texto_estandares" not in st.session_state:
-    st.session_state["texto_estandares"] = ""
+# Usamos un formulario para agrupar la entrada y el botón de borrado de forma eficiente
+with st.form("auditor_form", clear_on_submit=False):
+    # Entrada de texto con una clave única
+    texto_input = st.text_area(
+        "Pega tus estándares aquí:", 
+        key="texto_estandares_key",
+        height=300
+    )
+    
+    # Botones dentro del formulario
+    col1, col2, _ = st.columns([2, 2, 6])
+    with col1:
+        bot_auditar = st.form_submit_button("Auditar Estándares", type="primary")
+    with col2:
+        # Este botón especial limpia automáticamente TODO el formulario de golpe
+        bot_limpiar = st.form_submit_button("Borrar todo 🗑️")
 
-# Función para limpiar el cuadro de texto
-def limpiar_pantalla():
-    st.session_state["texto_estandares"] = ""
+# Si el usuario hace clic en borrar, forzamos el refresco instantáneo de la página para limpiar todo
+if bot_limpiar:
+    st.session_state["texto_estandares_key"] = ""
+    st.rerun()
 
-# 2. ENTRADA DE TEXTO (Conectada al session_state)
-texto_input = st.text_area(
-    "Pega tus estándares aquí:", 
-    value=st.session_state["texto_estandares"], 
-    key="texto_area_main",
-    height=300
-)
-
-# Actualizar el estado de la sesión si el usuario escribe directamente
-st.session_state["texto_estandares"] = texto_input
-
-# 3. BOTONES DE ACCIÓN EN PARALELO
-col1, col2 = st.columns([1, 8])
-
-with col1:
-    bot_auditar = st.button("Auditar Estándares", type="primary")
-
-with col2:
-    # Botón que ejecuta la función de limpieza al hacer clic
-    bot_limpiar = st.button("Borrar todo 🗑️", on_click=limpiar_pantalla)
-
-# 4. EJECUCIÓN DE LA AUDITORÍA
+# 4. EJECUCIÓN DE LA AUDITORÍA (Solo si se presionó Auditar y hay texto)
 if bot_auditar:
     if not texto_input.strip():
         st.warning("Por favor, pega algún texto para analizar.")
